@@ -6,7 +6,9 @@ import com.hwkedu.reggie.common.R;
 import com.hwkedu.reggie.dto.DishDto;
 import com.hwkedu.reggie.entity.Category;
 import com.hwkedu.reggie.entity.Dish;
+import com.hwkedu.reggie.entity.DishFlavor;
 import com.hwkedu.reggie.service.CategoryService;
+import com.hwkedu.reggie.service.DishFlavorService;
 import com.hwkedu.reggie.service.DishService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -30,6 +32,9 @@ public class DishController {
 
     @Autowired
     CategoryService categoryService;
+
+    @Autowired
+    DishFlavorService dishFlavorService;
     @PostMapping()
     public R<String> save(@RequestBody DishDto dishDto){
         log.info("接收到的数据{}",dishDto.toString());
@@ -67,4 +72,63 @@ public class DishController {
        dishDtoPage.setRecords(list);
         return   R.success(dishDtoPage);
     }
+    @GetMapping("/{id}")
+    public R<DishDto> get(@PathVariable("id") Long id){
+        DishDto dishDto = dishService.getWithFlavor(id);
+        return R.success(dishDto);
+    }
+    @PutMapping
+    public R<String> update(@RequestBody DishDto dishDto){
+        dishService.updateWithFlavor(dishDto);
+        return R.success("修改菜品成功");
+    }
+
+    /**
+     * 根据条件查询对应的菜品信息
+     * @param
+     * @return
+     */
+    @GetMapping("/list")
+    public R<List<DishDto>> list(Dish dish){
+
+        //构造查询条件
+        LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(dish.getCategoryId() != null, Dish::getCategoryId, dish.getCategoryId());
+        //添加条件，查询状态为1（1为起售，0为停售）的菜品
+        queryWrapper.eq(Dish::getStatus,1);
+
+        List<Dish> list = dishService.list(queryWrapper);
+
+        List<DishDto> dishDtoList = list.stream().map((item) -> {
+            DishDto dishDto = new DishDto();
+            //对象拷贝（每一个list数据）
+            BeanUtils.copyProperties(item,dishDto);
+            Long categoryId = item.getCategoryId();  //分类id
+            //通过categoryId查询到category内容
+            Category category = categoryService.getById(categoryId);
+            //判空
+            if(category != null){
+                String categoryName = category.getName();
+                dishDto.setCategoryName(categoryName);
+            }
+
+            //获取当前菜品id
+            Long dishId = item.getId();
+
+            //构造条件构造器
+            LambdaQueryWrapper<DishFlavor> dishFlavorLambdaQueryWrapper= new LambdaQueryWrapper<>();
+            //添加查询条件
+            dishFlavorLambdaQueryWrapper.eq(dishId != null,DishFlavor::getDishId,dishId);
+            //select * from dish_flavors where dish_id = ?
+            List<DishFlavor> dishFlavors = dishFlavorService.list(dishFlavorLambdaQueryWrapper);
+
+            dishDto.setFlavors(dishFlavors);
+
+            return dishDto;
+        }).collect(Collectors.toList());
+
+        return R.success(dishDtoList);
+    }
+
+
 }
