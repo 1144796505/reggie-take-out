@@ -22,7 +22,8 @@ public class SMSUtils {
 	public static void sendMessage(String signName, String templateCode,String phoneNumbers,String param){
 		DefaultProfile profile = DefaultProfile.getProfile("cn-hangzhou", "", "");
 		IAcsClient client = new DefaultAcsClient(profile);
-
+		
+			System.out.println("123");
 		SendSmsRequest request = new SendSmsRequest();
 		request.setSysRegionId("cn-hangzhou");
 		request.setPhoneNumbers(phoneNumbers);
